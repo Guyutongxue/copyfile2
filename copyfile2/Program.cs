@@ -1,4 +1,10 @@
-﻿using System;
+﻿/** App Info
+ * copyfile 2.0.0 by Guyutongxue
+ * Released under MIT License.
+ * Copyright © Guyutongxue 2018
+**/
+
+using System;
 using System.Windows;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,48 +18,77 @@ namespace copyfile2
     class Program
     {
         bool isExit = false;
-        NotifyIconHelper _notifyIconHelper; 
+        NotifyIconHelper notifyIconHelper;
+        const string title = "copyfile 2.0.0 by Guyutongxue\nReleased under MIT License.\n";
 
         static void Main(string[] args)
         {
-            Program _program = new Program();
+            Program program = new Program();
             Console.Title = "copyfile2";
-            _program._notifyIconHelper= new NotifyIconHelper(@"F:\Cpp\实用工具\Copy2WSL\bash.ico", Console.Title);
-            _program._notifyIconHelper.ShowNotifyIcon();
-            _program._notifyIconHelper.ShowBallon("copyfile2", "copyfile2 is running in background.", 1000);
+            program.notifyIconHelper = new NotifyIconHelper(@"F:\Cpp\实用工具\Copy2WSL\bash.ico", Console.Title);
+            program.notifyIconHelper.ShowNotifyIcon();
+            //_program._notifyIconHelper.ShowBallon("copyfile2", "copyfile2 is running in background.", 1000);
 
-            Thread threadMonitorInput = new Thread(new ThreadStart(_program.MonitorInput));
-            threadMonitorInput.Start();
+            Console.Write(title);
+            Thread thrdInput = new Thread(new ThreadStart(program.GetInput));
+            thrdInput.Start();
             while (true)
             {
+                Thread.Sleep(100); //or the CPU will boom
                 Application.DoEvents();
-                if (_program.isExit)
+                if (program.isExit)
                 {
-                    threadMonitorInput.Abort();
                     break;
                 }
             }
         }
-        void MonitorInput()
+        void GetInput()
         {
             while (true)
             {
+                Thread.Sleep(100);
+                Console.Write("> ");
                 string input = Console.ReadLine();
-                switch (input)
+                string cmd = input.Split(' ')[0];
+                try
                 {
-                    case "exit":
-                        {
-                            isExit = true;
-                            break;
-                        }
-                    case "hide":
-                        {
-                            _notifyIconHelper.Hide();
-                            break;
-                        }
-
+                    switch (cmd)
+                    {
+                        
+                        case "exit":
+                            {
+                                isExit = true;
+                                goto endOfThread;
+                            }
+                        case "hide":
+                            {
+                                notifyIconHelper.Hide();
+                                break;
+                            }
+                        default:
+                            {
+                                Console.WriteLine("Command \"" + cmd + "\" not found.");
+                                break;
+                            }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Error occured: " + ex.Message);
                 }
             }
+            endOfThread:;
+        }
+
+        string[] GetArgs(string command)
+        {
+            string[] args = new string[] { };
+            for(int i = 0; i < command.Length; i++)
+            {
+                if (command[i] == ' ') continue;
+
+            }
+            return args;
         }
     }
 }
