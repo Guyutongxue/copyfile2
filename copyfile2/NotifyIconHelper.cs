@@ -19,19 +19,23 @@ namespace copyfile2
     {
         private NotifyIcon notifyIcon = new NotifyIcon();
         private ContextMenu menu = new ContextMenu();
-        private MenuItem item = new MenuItem
+        private MenuItem itemSH = new MenuItem
         {
             Text = "Hide",
             Index = 0
+        };
+        private MenuItem itemExit = new MenuItem
+        {
+            Text = "Exit",
+            Index = 1
         };
 
         bool isHidden = false;
         string windowTitle = String.Empty;
 
-        public NotifyIconHelper(string iconPath, string title)
+        public NotifyIconHelper(Icon icon,string title)
         {
-            
-            notifyIcon.Icon = new Icon(iconPath);
+            notifyIcon.Icon = icon;
             windowTitle = title;
             notifyIcon.Visible = false;
             notifyIcon.Text = windowTitle;
@@ -43,17 +47,18 @@ namespace copyfile2
             notifyIcon.Visible = true;
         }
 
+public void HideNotifyIcon()
+        {
+            notifyIcon.Visible = false;
+        }
+
         public void ShowBallon(string tipTitle, string tipText, int timeout)
         {
             notifyIcon.ShowBalloonTip(timeout, tipTitle, tipText, ToolTipIcon.None);
         }
 
-        public void HideNotifyIcon()
-        {
-            notifyIcon.Visible = false;
-        }
-
-        private void _item_Click(object sender, EventArgs e)
+        
+        private void _itemSH_Click(object sender, EventArgs e)
         {
             if (isHidden)
             {
@@ -65,6 +70,12 @@ namespace copyfile2
             }
         }
 
+        private void _itemExit_Click(object sender,EventArgs e)
+        {
+            HideNotifyIcon();
+            Environment.Exit(0);
+        }
+
         private void _notifyIcon_MouseDoubleClick(object sender, MouseEventArgs e)
         {
             Show();
@@ -74,8 +85,11 @@ namespace copyfile2
         private void AddMenuItems()
         {
             
-            menu.MenuItems.Add(item);
-            item.Click += new EventHandler(_item_Click);
+            menu.MenuItems.Add(itemSH);
+            itemSH.Click += new EventHandler(_itemSH_Click);
+            menu.MenuItems.Add(itemExit);
+            itemExit.Click += new EventHandler(_itemExit_Click);
+
             notifyIcon.ContextMenu = menu;
             notifyIcon.MouseDoubleClick += new MouseEventHandler(_notifyIcon_MouseDoubleClick);
         }
@@ -92,7 +106,7 @@ namespace copyfile2
         [DllImport("user32.dll", EntryPoint = "SetForegroundWindow")]
         public static extern bool SetForegroundWindow(IntPtr hwind);
 
-        /*
+        /* IsExistsConsole
         public static bool IsExistsConsole(string title)
         {
             IntPtr windowHandle = FindWindow(null, title);
@@ -109,10 +123,10 @@ namespace copyfile2
             IntPtr ParenthWnd = new IntPtr(0);
             IntPtr et = new IntPtr(0);
             ParenthWnd = FindWindow(null,windowTitle);
-            int normalState = 0;//窗口状态(隐藏)
+            int normalState = 0;//Hide
             ShowWindow(ParenthWnd, normalState);
             isHidden = true;
-            item.Text = "Show";
+            itemSH.Text = "Show";
         }
 
         public void Show()
@@ -120,10 +134,10 @@ namespace copyfile2
             IntPtr ParenthWnd = new IntPtr(0);
             IntPtr et = new IntPtr(0);
             ParenthWnd = FindWindow(null,windowTitle);
-            int normalState = 9;//窗口状态(隐藏)
+            int normalState = 9; //Show
             ShowWindow(ParenthWnd, normalState);
             isHidden = false;
-            item.Text = "Hide";
+            itemSH.Text = "Hide";
         }
 
     }
