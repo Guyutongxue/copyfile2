@@ -4,7 +4,8 @@
 
 - Change language from C++ to C\#.
 - Add a notify icon.
-- **No Main Function Now**
+- Command Line style.
+- **No Main Function Now!**
 
 ## v1.1.1
 

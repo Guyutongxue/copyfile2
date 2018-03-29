@@ -23,12 +23,15 @@ namespace copyfile2
         bool isExit = false;
         bool isWatching = false;
 
-        NotifyIconHelper notifyIconHelper;
         public const string title = "copyfile2";
         const string info = "copyfile 2.0.0 by Guyutongxue\nReleased under MIT License.\n";
 
+        NotifyIconHelper notifyIconHelper;
+
         Thread thrdInput;
         Thread thrdWatch;
+
+        DriveInfo[] diOrigin;
 
         [STAThread]
         static void Main(string[] args)
@@ -72,8 +75,9 @@ namespace copyfile2
                     Thread.Sleep(100);
                     Console.Write("> ");
                     string input = Console.ReadLine();
-                    string cmd = input.Split(' ')[0];
-                    switch (cmd)
+                    string[] args = GetArgs(input);
+                    
+                    switch (args[0])
                     {
                         case "help":
                             {
@@ -114,10 +118,11 @@ help: show this message.");
                             }
                         default:
                             {
-                                Console.WriteLine($"Command \"{cmd}\" not found.");
+                                Console.WriteLine($"Command \"{args[0]}\" not found.");
                                 break;
                             }
                     }
+                    
                 }
                 catch (Exception ex)
                 {
@@ -128,16 +133,43 @@ help: show this message.");
 
 
 
-
+        /// <summary>
+        /// For split a command to arguments array by spaces.
+        /// </summary>
+        /// <param name="command">The required command</param>
+        /// <returns>An array of arguments.</returns>
         private string[] GetArgs(string command)
         {
-            string[] args = new string[] { };
+            List<string> args = new List<string>();
+            bool isCmd = false;
+            string part = string.Empty;
             for (int i = 0; i < command.Length; i++)
             {
-                if (command[i] == ' ') continue;
-
+                if (!isCmd)
+                {
+                    if (command[i] == ' ') continue;
+                    else
+                    {
+                        isCmd = true;
+                        part += command[i];
+                    }
+                }
+                else
+                {
+                    if(command[i]==' ')
+                    {
+                        args.Add(part);
+                        part = string.Empty;
+                        isCmd = false;
+                    }
+                    else
+                    {
+                        part += command[i];
+                    }
+                }
             }
-            return args;
+            if (isCmd) args.Add(part);
+            return args.ToArray();
         }
 
         public void Exit()
@@ -145,6 +177,17 @@ help: show this message.");
             notifyIconHelper.HideNotifyIcon();
             isExit = true;
         }
+
+        string DItoStr(DriveInfo[] di)
+        {
+            string res = string.Empty;
+            foreach(DriveInfo i in di)
+            {
+                res += i.Name.ToString()[0];
+            }
+            return res;
+        }
+
 
         #region Drive Event Watcher
         // This part is referenced from Stack Overflow. Thanks user "learns CSharp"!
@@ -157,8 +200,10 @@ help: show this message.");
                 ManagementEventWatcher watcher = new ManagementEventWatcher(query);
                 watcher.EventArrived += new EventArrivedEventHandler(Watcher_Event_Arrived);
 
+                diOrigin = DriveInfo.GetDrives();
+
                 watcher.Start();
-                Console.WriteLine("Watcher started. Waiting for event...");
+                Console.WriteLine($"Watcher started. Waiting for event...{DItoStr(diOrigin)}");
                 // Start listening for events
 
                 while (isWatching && (!isExit))
@@ -176,8 +221,10 @@ help: show this message.");
 
         void Watcher_Event_Arrived(object sender, EventArrivedEventArgs e)
         {
-            //Console.WriteLine("Got it!");
-            notifyIconHelper.ShowBallon("", "got", 1000);
+            if(!DItoStr(diOrigin).Equals(DItoStr(DriveInfo.GetDrives())))
+                Console.WriteLine($"Got it!{DItoStr(DriveInfo.GetDrives())}");
+
+            //notifyIconHelper.ShowBallon("", "got", 1000);
         }
 
         #endregion
