@@ -32,6 +32,7 @@ namespace copyfile2
         Thread thrdWatch;
 
         DriveInfo[] diOrigin;
+        CopyManager copyManager = new CopyManager();
 
         [STAThread]
         static void Main(string[] args)
@@ -64,8 +65,7 @@ namespace copyfile2
             }
         }
 
-
-
+        
         private void GetInput()
         {
             while (!isExit)
@@ -116,6 +116,11 @@ help: show this message.");
                                 isWatching = false;
                                 break;
                             }
+                        case "remove-mark":
+                            {
+                                copyManager.RemoveMark('i');
+                                break;
+                            }
                         default:
                             {
                                 Console.WriteLine($"Command \"{args[0]}\" not found.");
@@ -130,9 +135,7 @@ help: show this message.");
                 }
             }
         }
-
-
-
+        
         /// <summary>
         /// For split a command to arguments array by spaces.
         /// </summary>
@@ -178,17 +181,7 @@ help: show this message.");
             isExit = true;
         }
 
-        string DItoStr(DriveInfo[] di)
-        {
-            string res = string.Empty;
-            foreach(DriveInfo i in di)
-            {
-                res += i.Name.ToString()[0];
-            }
-            return res;
-        }
-
-
+        
         #region Drive Event Watcher
         // This part is referenced from Stack Overflow. Thanks user "learns CSharp"!
 
@@ -198,12 +191,15 @@ help: show this message.");
             {
                 WqlEventQuery query = new WqlEventQuery("SELECT * FROM Win32_DeviceChangeEvent");
                 ManagementEventWatcher watcher = new ManagementEventWatcher(query);
+
                 watcher.EventArrived += new EventArrivedEventHandler(Watcher_Event_Arrived);
+
+                copyManager = new CopyManager();
 
                 diOrigin = DriveInfo.GetDrives();
 
                 watcher.Start();
-                Console.WriteLine($"Watcher started. Waiting for event...{DItoStr(diOrigin)}");
+                Console.WriteLine($"Watcher started. Waiting for event...{DriveHelper.DItoStr(diOrigin)}");
                 // Start listening for events
 
                 while (isWatching && (!isExit))
@@ -221,13 +217,23 @@ help: show this message.");
 
         void Watcher_Event_Arrived(object sender, EventArrivedEventArgs e)
         {
-            if(!DItoStr(diOrigin).Equals(DItoStr(DriveInfo.GetDrives())))
-                Console.WriteLine($"Got it!{DItoStr(DriveInfo.GetDrives())}");
-
+            string diff = DriveHelper.DICompare(diOrigin, DriveInfo.GetDrives());
+            if (diff != "")
+            {
+                ConsoleHelper.EventWriteLine($"Got it!{diff}");
+                foreach(char i in diff)
+                {
+                    if(!copyManager.IsMarked(i))
+                        copyManager.AddMark(i);
+                }
+               
+            }
+            diOrigin = DriveInfo.GetDrives();
             //notifyIconHelper.ShowBallon("", "got", 1000);
         }
 
         #endregion
+        
 
         #region Force Quit Event
 
@@ -253,5 +259,48 @@ help: show this message.");
         }
 
         #endregion
+    }
+
+
+    //Class of dealing drive problems.
+    static class DriveHelper
+    {
+        
+        public static string DItoStr(DriveInfo[] di)
+        {
+            StringBuilder res = new StringBuilder();
+            foreach (DriveInfo i in di)
+            {
+                res.Append( i.Name.ToString()[0]);
+            }
+            return res.ToString();
+        }
+
+        public static string DICompare(DriveInfo[] diA,DriveInfo[] diB)
+        {
+            string strA = DItoStr(diA);
+            string strB = DItoStr(diB);
+            StringBuilder diff = new StringBuilder();
+            for(int i = 0; i < strB.Length; i++)
+            {
+                if (!strA.Contains(strB[i])) diff.Append(strB[i]);
+            }
+            return diff.ToString();
+        }
+    }
+
+    static class ConsoleHelper
+    {
+
+        /// <summary>
+        /// WriteLine when event occured.
+        /// </summary>
+        /// <param name="value"></param>
+        static public void EventWriteLine(string value)
+        {
+            Console.CursorLeft = 0;
+            Console.WriteLine(value);
+            Console.Write("> ");
+        }
     }
 }
