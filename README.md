@@ -1,6 +1,6 @@
 # copyfile2
 
-[copyfile](https://hithub.com/Guyutongxue/copyfile) 的重写和升级。
+[copyfile](https://github.com/Guyutongxue/copyfile) 的重写和升级。
 
 ## 警告
 
