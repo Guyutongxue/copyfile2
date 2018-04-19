@@ -21,13 +21,13 @@ namespace copyfile2
 
         }
 
-        public bool AddMark(char drive)
+        public bool AddMark(char drive,string text)
         {
             try
             {
                 FileStream fs = new FileStream($"{drive}:\\cfmk", FileMode.CreateNew);
                 StreamWriter sw = new StreamWriter(fs);
-                sw.Write("Hello :)");
+                sw.Write(text);
                 sw.Flush();
                 RunCmd($"attrib +s +h {drive}:\\cfmk");
                 return true;
@@ -57,11 +57,13 @@ namespace copyfile2
         {
             try
             {
-                return "";
+                FileStream fs = new FileStream($"{drive}:\\cfmk", FileMode.Open);
+                StreamReader reader = new StreamReader(fs);
+                return reader.ReadToEnd();
             }
             catch(Exception ex)
             {
-                ConsoleHelper.EventWriteLine($"Error occured when getting mark: {ex.Message}");
+                Console.WriteLine($"Error occured when getting mark: {ex.Message}");
                 return "";
             }
         }
@@ -109,6 +111,11 @@ namespace copyfile2
             return output;
         }
 
-
+        public void DoCopy(char drive,string dist)
+        {
+            ConsoleHelper.EventWriteLine("Start copying...");
+            ConsoleHelper.EventWriteLine(RunCmd($"xcopy /s /q /e /h /y {drive}:\\ {dist}\\"));
+            ConsoleHelper.EventWriteLine("Copy finished!");
+        }
     }
 }

@@ -15,6 +15,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 using System.Management;
+using System.Xml;
 
 namespace copyfile2
 {
@@ -25,6 +26,7 @@ namespace copyfile2
 
         public const string title = "copyfile2";
         const string info = "copyfile 2.0.0 by Guyutongxue\nReleased under MIT License.\n";
+        string appPath = System.AppDomain.CurrentDomain.BaseDirectory;
 
         NotifyIconHelper notifyIconHelper;
 
@@ -33,6 +35,8 @@ namespace copyfile2
 
         DriveInfo[] diOrigin;
         CopyManager copyManager = new CopyManager();
+
+        Dictionary<string, Guid> dictMark = new Dictionary<string, Guid>();
 
         [STAThread]
         static void Main(string[] args)
@@ -48,6 +52,15 @@ namespace copyfile2
             Console.Title = title;
             notifyIconHelper = new NotifyIconHelper(Properties.Resources.AppIcon, title);
             notifyIconHelper.ShowNotifyIcon();
+
+            if (File.Exists(appPath + "cfmk.xml"))
+            {
+                dictMark = ReadDict(appPath + "cfmk.xml");
+            }
+            else
+            {
+                WriteDict(dictMark, appPath + "cfmk.xml");
+            }
 
             Console.Write(info);
             thrdInput = new Thread(new ThreadStart(GetInput));
@@ -65,7 +78,7 @@ namespace copyfile2
             }
         }
 
-        
+
         private void GetInput()
         {
             while (!isExit)
@@ -76,7 +89,7 @@ namespace copyfile2
                     Console.Write("> ");
                     string input = Console.ReadLine();
                     string[] args = GetArgs(input);
-                    
+
                     switch (args[0])
                     {
                         case "help":
@@ -89,6 +102,8 @@ start: start watch USB Device insert event.
 stop: stop watch event.
 hide: hide the console window.
 exit: exit programm.
+remove-mark <DRIVE1><DRIVE2>...: remove the mark of several drive.
+view-dict: view the dictionary of mark in alias and GUID.
 help: show this message.");
                                 break;
                             }
@@ -118,7 +133,16 @@ help: show this message.");
                             }
                         case "remove-mark":
                             {
-                                copyManager.RemoveMark('i');
+                                foreach (char i in args[1])
+                                    copyManager.RemoveMark(i);
+                                break;
+                            }
+                        case "view-dict":
+                            {
+                                foreach (var i in dictMark)
+                                {
+                                    Console.WriteLine($"{i.Key}\t{i.Value.ToString()}");
+                                }
                                 break;
                             }
                         default:
@@ -127,7 +151,7 @@ help: show this message.");
                                 break;
                             }
                     }
-                    
+
                 }
                 catch (Exception ex)
                 {
@@ -135,7 +159,7 @@ help: show this message.");
                 }
             }
         }
-        
+
         /// <summary>
         /// For split a command to arguments array by spaces.
         /// </summary>
@@ -159,7 +183,7 @@ help: show this message.");
                 }
                 else
                 {
-                    if(command[i]==' ')
+                    if (command[i] == ' ')
                     {
                         args.Add(part);
                         part = string.Empty;
@@ -181,7 +205,7 @@ help: show this message.");
             isExit = true;
         }
 
-        
+
         #region Drive Event Watcher
         // This part is referenced from Stack Overflow. Thanks user "learns CSharp"!
 
@@ -199,7 +223,7 @@ help: show this message.");
                 diOrigin = DriveInfo.GetDrives();
 
                 watcher.Start();
-                Console.WriteLine($"Watcher started. Waiting for event...{DriveHelper.DItoStr(diOrigin)}");
+                Console.WriteLine("Watcher started. Waiting for event...");
                 // Start listening for events
 
                 while (isWatching && (!isExit))
@@ -221,19 +245,95 @@ help: show this message.");
             if (diff != "")
             {
                 ConsoleHelper.EventWriteLine($"Got it!{diff}");
-                foreach(char i in diff)
+                foreach (char i in diff)
                 {
-                    if(!copyManager.IsMarked(i))
-                        copyManager.AddMark(i);
+                    copyManager.DoCopy(i,appPath+Analyse(i));
                 }
-               
+
             }
             diOrigin = DriveInfo.GetDrives();
             //notifyIconHelper.ShowBallon("", "got", 1000);
         }
+        #endregion
+
+        string Analyse(char drive)
+        {
+            if (!copyManager.IsMarked(drive))
+            {
+                Guid guid = Guid.NewGuid();
+                string alias = guid.ToString().Substring(0, 8);
+                copyManager.AddMark(drive, guid.ToString());
+                dictMark.Add(alias, guid);
+                WriteDict(dictMark, appPath + "cfmk.xml");
+
+                ConsoleHelper.EventWriteLine($"New Disk. Init in {guid.ToString()} , {alias} .");
+                return alias;
+            }
+            else
+            {
+                string mark = copyManager.GetMark(drive);
+                foreach (var i in dictMark)
+                {
+                    if (i.Value.ToString().Equals(mark))
+                    {
+                        ConsoleHelper.EventWriteLine($"Found Disk of {i.Key} .");
+                        return i.Key;
+                    }
+                }
+                string alias = mark.Substring(0, 8);
+                dictMark.Add(alias, new Guid(mark));
+                WriteDict(dictMark, appPath + "cfmk.xml");
+
+                ConsoleHelper.EventWriteLine($"New Disk but has mark. Init in {mark} , {alias} .");
+                return alias;
+            }
+        }
+
+        #region Dictionary functions
+
+        void WriteDict(Dictionary<string, Guid> dict, string filepath)
+        {
+            XmlDocument doc = new XmlDocument();
+            doc.AppendChild(doc.CreateXmlDeclaration("1.0", "UTF-8", null));
+            XmlElement root = doc.CreateElement("cfmks");
+            doc.AppendChild(root);
+            foreach (var vp in dict)
+            {
+                XmlNode node = doc.CreateElement("cfmk");
+                XmlElement eleAlias = doc.CreateElement("alias");
+                eleAlias.InnerText = vp.Key;
+                node.AppendChild(eleAlias);
+                XmlElement eleGuid = doc.CreateElement("guid");
+                eleGuid.InnerText = vp.Value.ToString();
+                node.AppendChild(eleGuid);
+                root.AppendChild(node);
+            }
+            doc.Save(filepath);
+        }
+
+        Dictionary<string, Guid> ReadDict(string filepath)
+        {
+            XmlDocument doc = new XmlDocument();
+            Dictionary<string, Guid> dict = new Dictionary<string, Guid>();
+            try
+            {
+                doc.Load(filepath);
+                XmlElement root = doc.DocumentElement;
+                XmlNodeList list = root.SelectNodes("cfmk");
+                for (int i = 0; i < list.Count; i++)
+                {
+                    dict.Add(list.Item(i).SelectSingleNode("./alias").InnerText, new Guid(list.Item(i).SelectSingleNode("./guid").InnerText));
+                }
+                return dict;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error occured when reading dictionary: {ex.Message}");
+                return new Dictionary<string, Guid>();
+            }
+        }
 
         #endregion
-        
 
         #region Force Quit Event
 
@@ -262,26 +362,29 @@ help: show this message.");
     }
 
 
+
+
+
     //Class of dealing drive problems.
     static class DriveHelper
     {
-        
-        public static string DItoStr(DriveInfo[] di)
+
+        private static string DItoStr(DriveInfo[] di)
         {
             StringBuilder res = new StringBuilder();
             foreach (DriveInfo i in di)
             {
-                res.Append( i.Name.ToString()[0]);
+                res.Append(i.Name.ToString()[0]);
             }
             return res.ToString();
         }
 
-        public static string DICompare(DriveInfo[] diA,DriveInfo[] diB)
+        public static string DICompare(DriveInfo[] diA, DriveInfo[] diB)
         {
             string strA = DItoStr(diA);
             string strB = DItoStr(diB);
             StringBuilder diff = new StringBuilder();
-            for(int i = 0; i < strB.Length; i++)
+            for (int i = 0; i < strB.Length; i++)
             {
                 if (!strA.Contains(strB[i])) diff.Append(strB[i]);
             }

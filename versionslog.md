@@ -5,7 +5,12 @@
 - Change language from C++ to C\#.
 - Add a notify icon.
 - Command Line style.
-- **No Main Function Now!**
+- Automatically combine same disk by inserting marks.
+- **NOT FINISHED PROJECT YET SO DO NOT USE IT ANYWAY**
+
+## v1.1.2
+
+- Fix .vbs file to make it coompatible with 'classroom'.
 
 ## v1.1.1
 
