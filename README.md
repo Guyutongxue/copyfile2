@@ -13,6 +13,8 @@
 
 ## Compile
 
+Requirement: .NET Framework 4.5 or newer, C# 6.0 or newer.
+
 Use VS 2017 to compile the C# .NET Project.
 
 Type `help` for more infomation.
