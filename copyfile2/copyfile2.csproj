@@ -65,6 +65,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CopyManager.cs" />
+    <Compile Include="DictionaryHelper.cs" />
     <Compile Include="NotifyIconHelper.cs" />
     <Compile Include="CFProgram.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

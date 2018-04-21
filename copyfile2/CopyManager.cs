@@ -14,14 +14,10 @@ using System.IO;
 
 namespace copyfile2
 {
-    public class CopyManager
+    static public class CopyManager
     {
-        public CopyManager()
-        {
-
-        }
-
-        public bool AddMark(char drive,string text)
+        
+        static public bool AddMark(char drive, string text)
         {
             try
             {
@@ -29,92 +25,97 @@ namespace copyfile2
                 StreamWriter sw = new StreamWriter(fs);
                 sw.Write(text);
                 sw.Flush();
-                RunCmd($"attrib +s +h {drive}:\\cfmk");
+                RunProcess("attrib", $"+s +h {drive}:\\cfmk");
+                fs.Close();
                 return true;
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 ConsoleHelper.EventWriteLine($"Error occcured when adding mark: {ex.Message}");
                 return false;
             }
         }
 
-        public bool RemoveMark(char drive)
+        static public bool RemoveMark(char drive)
         {
             try
             {
-                ConsoleHelper.EventWriteLine(RunCmd($"del /AS /F {drive}:\\cfmk"));
+                //ConsoleHelper.EventWriteLine(RunCmd($"del /AS /F {drive}:\\cfmk"));
+                File.Delete($"{drive}:\\cfmk");
                 return true;
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                ConsoleHelper.EventWriteLine($"Error occured when removing mark: {ex.Message}");
+                Console.WriteLine($"Error occured when removing mark: {ex.Message}");
                 return false;
             }
         }
 
-        public string GetMark(char drive)
+        static public string GetMark(char drive)
         {
             try
             {
                 FileStream fs = new FileStream($"{drive}:\\cfmk", FileMode.Open);
                 StreamReader reader = new StreamReader(fs);
-                return reader.ReadToEnd();
+                string res = reader.ReadToEnd();
+                fs.Close();
+                return res;
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Console.WriteLine($"Error occured when getting mark: {ex.Message}");
                 return "";
             }
         }
 
-        public bool IsMarked(char drive)
+        static public bool IsMarked(char drive)
         {
             try
             {
                 return File.Exists($"{drive}:\\cfmk");
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 ConsoleHelper.EventWriteLine($"Error occured when detecting mark: {ex.Message}");
                 return false;
             }
         }
-        
-        /// <summary>
-        /// Run cmd.exe command.
-        /// </summary>
-        /// Thanks user SeanyBrake from CSDN.
-        /// <param name="cmd"></param>
-        /// <param name="output"></param>
-        private static string RunCmd(string cmd)
-        {
-            string output = string.Empty;
-            cmd = cmd.Trim().TrimEnd('&') + "&exit";
-            using (Process p = new Process())
-            {
-                p.StartInfo.FileName = @"C:\Windows\System32\cmd.exe";
-                p.StartInfo.UseShellExecute = false;
-                p.StartInfo.RedirectStandardInput = true;
-                p.StartInfo.RedirectStandardOutput = true;
-                p.StartInfo.RedirectStandardError = true;
-                p.StartInfo.CreateNoWindow = true;
-                p.Start();
-                
-                p.StandardInput.WriteLine(cmd);
-                p.StandardInput.AutoFlush = true;
 
-                output = p.StandardOutput.ReadToEnd();
-                p.WaitForExit();
-                p.Close();
+        static void RunProcess(string filename, string argument)
+        {
+            string output = "";
+            try
+            {
+                Process cmd = new Process();
+
+                cmd.StartInfo.FileName = filename;
+                cmd.StartInfo.Arguments = argument;
+
+                cmd.StartInfo.UseShellExecute = false;
+
+                cmd.StartInfo.RedirectStandardInput = true;
+                cmd.StartInfo.RedirectStandardOutput = true;
+
+                cmd.StartInfo.CreateNoWindow = true;
+                cmd.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
+
+                cmd.Start();
+
+                output = cmd.StandardOutput.ReadToEnd();
+                ConsoleHelper.EventWriteLine(output);
+                cmd.WaitForExit();
+                cmd.Close();
             }
-            return output;
+            catch (Exception ex)
+            {
+                ConsoleHelper.EventWriteLine($"Error occured when copying file:{ex.Message}");
+            }
         }
 
-        public void DoCopy(char drive,string dist)
+        static public void DoCopy(char drive, string dist)
         {
             ConsoleHelper.EventWriteLine("Start copying...");
-            ConsoleHelper.EventWriteLine(RunCmd($"xcopy /s /q /e /h /y {drive}:\\ {dist}\\"));
+            RunProcess("xcopy", $"/s /q /e /h /y {drive}:\\ {dist}\\");
             ConsoleHelper.EventWriteLine("Copy finished!");
         }
     }

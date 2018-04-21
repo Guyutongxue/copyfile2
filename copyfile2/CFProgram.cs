@@ -34,9 +34,8 @@ namespace copyfile2
         Thread thrdWatch;
 
         DriveInfo[] diOrigin;
-        CopyManager copyManager = new CopyManager();
 
-        Dictionary<string, Guid> dictMark = new Dictionary<string, Guid>();
+        DictionaryHelper dictMark = new DictionaryHelper();
 
         [STAThread]
         static void Main(string[] args)
@@ -55,16 +54,15 @@ namespace copyfile2
 
             if (File.Exists(appPath + "cfmk.xml"))
             {
-                dictMark = ReadDict(appPath + "cfmk.xml");
+                dictMark.ReadFromFile(appPath + "cfmk.xml");
             }
             else
             {
-                WriteDict(dictMark, appPath + "cfmk.xml");
+                dictMark.WriteToFile(appPath + "cfmk.xml");
             }
 
             Console.Write(info);
             thrdInput = new Thread(new ThreadStart(GetInput));
-
             thrdInput.Start();
 
             while (true)
@@ -102,13 +100,11 @@ start: start watch USB Device insert event.
 stop: stop watch event.
 hide: hide the console window.
 exit: exit programm.
-remove-mark <DRIVE1><DRIVE2>...: remove the mark of several drive.
+rm-mark <DRIVE1><DRIVE2>...: remove the mark of several drive.
 view-dict: view the dictionary of mark in alias and GUID.
 help: show this message.");
                                 break;
                             }
-
-
                         case "exit":
                             {
                                 Exit();
@@ -121,28 +117,41 @@ help: show this message.");
                             }
                         case "start":
                             {
-                                isWatching = true;
-                                thrdWatch = new Thread(new ThreadStart(Watcher));
-                                thrdWatch.Start();
+                                if (!isWatching)
+                                {
+                                    isWatching = true;
+                                    thrdWatch = new Thread(new ThreadStart(Watcher));
+                                    thrdWatch.Start();
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Watcher has been started.");
+                                }
                                 break;
                             }
                         case "stop":
                             {
-                                isWatching = false;
+                                if (isWatching)
+                                {
+                                    isWatching = false;
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Watcher hasn't been started yet.");
+                                }
+
                                 break;
                             }
-                        case "remove-mark":
+                        case "rm-mark":
                             {
                                 foreach (char i in args[1])
-                                    copyManager.RemoveMark(i);
+                                    CopyManager.RemoveMark(i);
                                 break;
                             }
-                        case "view-dict":
+                        case "dict":
                             {
-                                foreach (var i in dictMark)
-                                {
-                                    Console.WriteLine($"{i.Key}\t{i.Value.ToString()}");
-                                }
+                                Console.WriteLine(dictMark.Operate(args));
+                                dictMark.WriteToFile(appPath + "cfmk.xml");
                                 break;
                             }
                         default:
@@ -217,9 +226,7 @@ help: show this message.");
                 ManagementEventWatcher watcher = new ManagementEventWatcher(query);
 
                 watcher.EventArrived += new EventArrivedEventHandler(Watcher_Event_Arrived);
-
-                copyManager = new CopyManager();
-
+                
                 diOrigin = DriveInfo.GetDrives();
 
                 watcher.Start();
@@ -247,7 +254,7 @@ help: show this message.");
                 ConsoleHelper.EventWriteLine($"Got it!{diff}");
                 foreach (char i in diff)
                 {
-                    copyManager.DoCopy(i,appPath+Analyse(i));
+                    CopyManager.DoCopy(i, appPath + Analyse(i));
                 }
 
             }
@@ -256,84 +263,43 @@ help: show this message.");
         }
         #endregion
 
+        /// <summary>
+        /// Return the alias of drive by analysis.
+        /// </summary>
+        /// <param name="drive">Drive root directory.</param>
+        /// <returns>Alias.</returns>
         string Analyse(char drive)
         {
-            if (!copyManager.IsMarked(drive))
+            if (!CopyManager.IsMarked(drive))
             {
                 Guid guid = Guid.NewGuid();
                 string alias = guid.ToString().Substring(0, 8);
-                copyManager.AddMark(drive, guid.ToString());
+                CopyManager.AddMark(drive, guid.ToString());
                 dictMark.Add(alias, guid);
-                WriteDict(dictMark, appPath + "cfmk.xml");
+                dictMark.WriteToFile(appPath + "cfmk.xml");
 
-                ConsoleHelper.EventWriteLine($"New Disk. Init in {guid.ToString()} , {alias} .");
+                ConsoleHelper.EventWriteLine($"New Disk. Init in ({alias},{guid.ToString()}).");
                 return alias;
             }
             else
             {
-                string mark = copyManager.GetMark(drive);
-                foreach (var i in dictMark)
+                string mark = CopyManager.GetMark(drive);
+                foreach (var i in dictMark.dict)
                 {
                     if (i.Value.ToString().Equals(mark))
                     {
-                        ConsoleHelper.EventWriteLine($"Found Disk of {i.Key} .");
+                        ConsoleHelper.EventWriteLine($"Found Disk of ({i.Key},{i.Value}).");
                         return i.Key;
                     }
                 }
                 string alias = mark.Substring(0, 8);
                 dictMark.Add(alias, new Guid(mark));
-                WriteDict(dictMark, appPath + "cfmk.xml");
+                dictMark.WriteToFile(appPath + "cfmk.xml");
 
-                ConsoleHelper.EventWriteLine($"New Disk but has mark. Init in {mark} , {alias} .");
+                ConsoleHelper.EventWriteLine($"New Disk but has mark. Init in ({alias},{mark}).");
                 return alias;
             }
         }
-
-        #region Dictionary functions
-
-        void WriteDict(Dictionary<string, Guid> dict, string filepath)
-        {
-            XmlDocument doc = new XmlDocument();
-            doc.AppendChild(doc.CreateXmlDeclaration("1.0", "UTF-8", null));
-            XmlElement root = doc.CreateElement("cfmks");
-            doc.AppendChild(root);
-            foreach (var vp in dict)
-            {
-                XmlNode node = doc.CreateElement("cfmk");
-                XmlElement eleAlias = doc.CreateElement("alias");
-                eleAlias.InnerText = vp.Key;
-                node.AppendChild(eleAlias);
-                XmlElement eleGuid = doc.CreateElement("guid");
-                eleGuid.InnerText = vp.Value.ToString();
-                node.AppendChild(eleGuid);
-                root.AppendChild(node);
-            }
-            doc.Save(filepath);
-        }
-
-        Dictionary<string, Guid> ReadDict(string filepath)
-        {
-            XmlDocument doc = new XmlDocument();
-            Dictionary<string, Guid> dict = new Dictionary<string, Guid>();
-            try
-            {
-                doc.Load(filepath);
-                XmlElement root = doc.DocumentElement;
-                XmlNodeList list = root.SelectNodes("cfmk");
-                for (int i = 0; i < list.Count; i++)
-                {
-                    dict.Add(list.Item(i).SelectSingleNode("./alias").InnerText, new Guid(list.Item(i).SelectSingleNode("./guid").InnerText));
-                }
-                return dict;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error occured when reading dictionary: {ex.Message}");
-                return new Dictionary<string, Guid>();
-            }
-        }
-
-        #endregion
 
         #region Force Quit Event
 
