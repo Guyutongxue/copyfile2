@@ -22,11 +22,12 @@ namespace copyfile2
     class CFProgram
     {
         bool isExit = false;
+        bool isGettingInput = true;
         bool isWatching = false;
 
         public const string title = "copyfile2";
         const string info = "copyfile 2.0.0 by Guyutongxue\nReleased under MIT License.\n";
-        string appPath = System.AppDomain.CurrentDomain.BaseDirectory;
+        string appPath = AppDomain.CurrentDomain.BaseDirectory;
 
         NotifyIconHelper notifyIconHelper;
 
@@ -47,6 +48,8 @@ namespace copyfile2
         {
             //Force Quit EventHandler
             SetConsoleCtrlHandler(CancelHandler, true);
+            //Ctrl+C Quit EventHandler
+            Console.CancelKeyPress += new ConsoleCancelEventHandler(Exit);
 
             Console.Title = title;
             notifyIconHelper = new NotifyIconHelper(Properties.Resources.AppIcon, title);
@@ -79,7 +82,7 @@ namespace copyfile2
 
         private void GetInput()
         {
-            while (!isExit)
+            while (isGettingInput)
             {
                 try
                 {
@@ -98,10 +101,17 @@ Released under MIT License.
 
 start: start watch USB Device insert event.
 stop: stop watch event.
+
 hide: hide the console window.
 exit: exit programm.
-rm-mark <DRIVE1><DRIVE2>...: remove the mark of several drive.
-view-dict: view the dictionary of mark in alias and GUID.
+
+rm-mark <DRIVE1><DRIVE2>...: remove the mark of several drives.
+
+add-ignore <DRIVE1><DRIVE2>...: ignore several drives.
+rm-ignore <DRIVE1><DRIVE2>...: cancel ignoring of several drives.
+
+dict <COMMAND> [<ARGS>]: view the dictionary of marks.
+
 help: show this message.");
                                 break;
                             }
@@ -131,27 +141,34 @@ help: show this message.");
                             }
                         case "stop":
                             {
-                                if (isWatching)
-                                {
-                                    isWatching = false;
-                                }
-                                else
-                                {
-                                    Console.WriteLine("Watcher hasn't been started yet.");
-                                }
-
+                                if (isWatching) isWatching = false;
+                                else Console.WriteLine("Watcher hasn't been started yet.");
                                 break;
                             }
                         case "rm-mark":
                             {
                                 foreach (char i in args[1])
-                                    CopyManager.RemoveMark(i);
+                                    if (CopyManager.IsMarked(i)) CopyManager.RemoveMark(i);
+                                    else Console.WriteLine($"No mark in {i} .");
+                                break;
+                            }
+                        case "add-ignore":
+                            {
+                                foreach (char i in args[1])
+                                    if (!CopyManager.IsIgnored(i)) CopyManager.AddIgnore(i);
+                                    else Console.WriteLine($"Already ignored {i} .");
+                                break;
+                            }
+                        case "rm-ignore":
+                            {
+                                foreach (char i in args[1])
+                                    if (CopyManager.IsIgnored(i)) CopyManager.RemoveIgnore(i);
+                                    else Console.WriteLine($"Haven't ignored {i} yet.");
                                 break;
                             }
                         case "dict":
                             {
-                                Console.WriteLine(dictMark.Operate(args));
-                                dictMark.WriteToFile(appPath + "cfmk.xml");
+                                Console.WriteLine(dictMark.Operate(args,appPath));
                                 break;
                             }
                         default:
@@ -208,11 +225,7 @@ help: show this message.");
             return args.ToArray();
         }
 
-        public void Exit()
-        {
-            notifyIconHelper.HideNotifyIcon();
-            isExit = true;
-        }
+
 
 
         #region Drive Event Watcher
@@ -226,7 +239,7 @@ help: show this message.");
                 ManagementEventWatcher watcher = new ManagementEventWatcher(query);
 
                 watcher.EventArrived += new EventArrivedEventHandler(Watcher_Event_Arrived);
-                
+
                 diOrigin = DriveInfo.GetDrives();
 
                 watcher.Start();
@@ -238,6 +251,7 @@ help: show this message.");
                     Thread.Sleep(100);
                 }
                 watcher.Stop();
+                CopyManager.RunProcess("taskkill", "/f /im xcopy.exe");
                 Console.WriteLine("Watcher stopped.");
             }
             catch (ManagementException ex)
@@ -254,7 +268,8 @@ help: show this message.");
                 ConsoleHelper.EventWriteLine($"Got it!{diff}");
                 foreach (char i in diff)
                 {
-                    CopyManager.DoCopy(i, appPath + Analyse(i));
+                    if (!CopyManager.IsIgnored(i)) CopyManager.DoCopy(i, appPath + Analyse(i));
+                    else ConsoleHelper.EventWriteLine($"{i} ignored.");
                 }
 
             }
@@ -309,13 +324,13 @@ help: show this message.");
 
         public bool CancelHandler(int dwCtrlType)
         {
-            Exit();
             switch (dwCtrlType)
             {
                 case 0:
                     Console.WriteLine("\nKeyboard-Iterrupt Force Quit."); //Ctrl+C 
-                    break;
+                    return true;
                 case 2:
+                    Exit();
                     Console.WriteLine("\nClose-Button Force Quit.");//Press Button
                     break;
             }
@@ -325,6 +340,20 @@ help: show this message.");
         }
 
         #endregion
+
+        protected void Exit(object sender, ConsoleCancelEventArgs e)
+        {
+            Exit();
+        }
+
+        public void Exit()
+        {
+            Console.WriteLine("\nexit");
+            isGettingInput = false;
+            isWatching = false;
+            notifyIconHelper.HideNotifyIcon();
+            isExit = true;
+        }
     }
 
 

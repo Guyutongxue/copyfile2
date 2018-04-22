@@ -25,7 +25,7 @@ namespace copyfile2
                 StreamWriter sw = new StreamWriter(fs);
                 sw.Write(text);
                 sw.Flush();
-                RunProcess("attrib", $"+s +h {drive}:\\cfmk");
+                File.SetAttributes($"{drive}:\\ignorecf", FileAttributes.Hidden | FileAttributes.System);
                 fs.Close();
                 return true;
             }
@@ -63,7 +63,7 @@ namespace copyfile2
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error occured when getting mark: {ex.Message}");
+                ConsoleHelper.EventWriteLine($"Error occured when getting mark: {ex.Message}");
                 return "";
             }
         }
@@ -81,7 +81,45 @@ namespace copyfile2
             }
         }
 
-        static void RunProcess(string filename, string argument)
+        #region ignorecf
+
+        static public bool AddIgnore(char drive)
+        {
+            try
+            {
+                File.Create($"{drive}:\\ignorecf").Dispose();
+                File.SetAttributes($"{drive}:\\ignorecf", FileAttributes.Hidden | FileAttributes.System);
+                return true;
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine($"Error occured when adding 'ignorecf': {ex.Message}");
+                return false;
+            }
+        }
+
+        static public bool RemoveIgnore(char drive)
+        {
+            try
+            {
+                File.Delete($"{drive}:\\ignorecf");
+                return true;
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine($"Error occured when removing 'ignorecf': {ex.Message}");
+                return false;
+            }
+        }
+
+        static public bool IsIgnored(char drive)
+        {
+            return File.Exists($"{drive}:\\ignorecf");
+        }
+
+        #endregion
+
+        static public string RunProcess(string filename, string argument)
         {
             string output = "";
             try
@@ -102,7 +140,6 @@ namespace copyfile2
                 cmd.Start();
 
                 output = cmd.StandardOutput.ReadToEnd();
-                ConsoleHelper.EventWriteLine(output);
                 cmd.WaitForExit();
                 cmd.Close();
             }
@@ -110,12 +147,13 @@ namespace copyfile2
             {
                 ConsoleHelper.EventWriteLine($"Error occured when copying file:{ex.Message}");
             }
+            return output;
         }
 
         static public void DoCopy(char drive, string dist)
         {
             ConsoleHelper.EventWriteLine("Start copying...");
-            RunProcess("xcopy", $"/s /q /e /h /y {drive}:\\ {dist}\\");
+            ConsoleHelper.EventWriteLine(RunProcess("xcopy", $"/s /q /e /h /y {drive}:\\ {dist}\\"));
             ConsoleHelper.EventWriteLine("Copy finished!");
         }
     }

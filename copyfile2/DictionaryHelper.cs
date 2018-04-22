@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
+using System.IO;
 
 namespace copyfile2
 {
@@ -22,24 +23,29 @@ namespace copyfile2
             dict.Add(key, value);
         }
 
-        public string Operate(string[] cmds)
+        public string Operate(string[] cmds, string path)
         {
             string output = string.Empty;
+            Dictionary<string, Guid> backup = dict;
             try
             {
+                if (cmds.Length == 1)
+                {
+                    return "Dictionary Helper: Need command. Type 'dict help' for more info.";
+                }
                 switch (cmds[1])
                 {
                     case "help":
                         {
-                            output = @"
-DictionaryHelper Commands:
-view: View the dictionary
-mv <OLD ALIAS> <NEW ALIAS>: Rename a pair by alias.
-rm <ALIAS>: Remove a pair.
-help: Print this message.";
+                            output =
+@"Dictionary Helper Commands:
+ls: view the dictionary
+mv <OLD ALIAS> <NEW ALIAS>: rename a pair by alias.
+rm <ALIAS>: remove a pair.
+help: show this message.";
                             break;
                         }
-                    case "view":
+                    case "ls":
                         {
 
                             foreach (var i in dict)
@@ -55,25 +61,33 @@ help: Print this message.";
                             output += $"({cmds[2]},{value})";
                             dict.Remove(cmds[2]);
                             dict.Add(cmds[3], value);
+
+                            WriteToFile(path + "cfmk.xml");
                             output += $" -> ({cmds[3]},{value})";
+                            if (Directory.Exists(path + cmds[2])){
+                                Directory.Move(path + cmds[2], path + cmds[3]);
+                                output += "\n Folder moved.";
+                            }
                             break;
                         }
                     case "rm":
                         {
                             Guid value = dict[cmds[2]];
                             dict.Remove(cmds[2]);
+                            WriteToFile(path + "cfmk.xml");
                             output = $"({cmds[2]},{value}) removed.";
                             break;
                         }
                     default:
                         {
-                            output = $"Dictionary Helper: Command {cmds[1]} not found.";
+                            output = $"Dictionary Helper: Command '{cmds[1]}' not found.";
                             break;
                         }
                 }
             }
             catch (Exception ex)
             {
+                dict = backup;
                 output = $"Dictionary Helper: Error occured: {ex.Message}";
             }
             return output;
