@@ -6,7 +6,8 @@
 - Add a notify icon.
 - Command Line style.
 - Automatically combine same disk by inserting marks.
-- **NOT FINISHED PROJECT YET SO DO NOT USE IT ANYWAY**
+- Ignore specific disks.
+- **NOT FINISHED PROJECT YET**
 
 ## v1.1.2
 
