@@ -41,10 +41,10 @@ namespace copyfile2
         [STAThread]
         static void Main(string[] args)
         {
-            CFProgram program = new CFProgram();
+            CFProgram program = new CFProgram(args);
         }
 
-        CFProgram()
+        CFProgram(string[] args)
         {
             //Force Quit EventHandler
             SetConsoleCtrlHandler(CancelHandler, true);
@@ -62,6 +62,14 @@ namespace copyfile2
             else
             {
                 dictMark.WriteToFile(appPath + "cfmk.xml");
+            }
+
+            if (args.Length >= 1 && args[0].Equals("bgstart"))
+            {
+                notifyIconHelper.Hide();
+                isWatching = true;
+                thrdWatch = new Thread(new ThreadStart(Watcher));
+                thrdWatch.Start();
             }
 
             Console.Write(info);
@@ -90,7 +98,7 @@ namespace copyfile2
                     Console.Write("> ");
                     string input = Console.ReadLine();
                     string[] args = GetArgs(input);
-
+                    if (args.Length == 0) continue;
                     switch (args[0])
                     {
                         case "help":
@@ -99,20 +107,24 @@ namespace copyfile2
 @"copyfile 2.0.0 by Guyutongxue
 Released under MIT License.
 
-start: start watch USB Device insert event.
-stop: stop watch event.
+start	start watch USB Device insert event.
+stop	stop watch event.
 
-hide: hide the console window.
-exit: exit programm.
+hide	hide the console window.
+exit	exit programm.
 
-rm-mark <DRIVE1><DRIVE2>...: remove the mark of several drives.
+rm-mark <DRIVE1><DRIVE2>...
+	remove the mark of several drives.
 
-add-ignore <DRIVE1><DRIVE2>...: ignore several drives.
-rm-ignore <DRIVE1><DRIVE2>...: cancel ignoring of several drives.
+add-ignore <DRIVE1><DRIVE2>...
+	ignore several drives.
+rm-ignore <DRIVE1><DRIVE2>...
+	cancel ignoring of several drives.
 
-dict <COMMAND> [<ARGS>]: view the dictionary of marks.
+dict <COMMAND> [<ARGS>]
+	view the dictionary of marks.
 
-help: show this message.");
+help	show this message.");
                                 break;
                             }
                         case "exit":
@@ -141,7 +153,11 @@ help: show this message.");
                             }
                         case "stop":
                             {
-                                if (isWatching) isWatching = false;
+                                if (isWatching)
+                                {
+                                    isWatching = false;
+                                    thrdWatch.Join();
+                                }
                                 else Console.WriteLine("Watcher hasn't been started yet.");
                                 break;
                             }
@@ -168,7 +184,7 @@ help: show this message.");
                             }
                         case "dict":
                             {
-                                Console.WriteLine(dictMark.Operate(args,appPath));
+                                Console.WriteLine(dictMark.Operate(args, appPath));
                                 break;
                             }
                         default:

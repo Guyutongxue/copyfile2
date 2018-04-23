@@ -72,6 +72,7 @@ public void HideNotifyIcon()
 
         private void _itemExit_Click(object sender,EventArgs e)
         {
+            CopyManager.RunProcess("taskkill", "/f /im xcopy.exe");
             HideNotifyIcon();
             Environment.Exit(0);
         }

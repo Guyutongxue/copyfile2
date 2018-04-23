@@ -39,10 +39,12 @@ namespace copyfile2
                         {
                             output =
 @"Dictionary Helper Commands:
-ls: view the dictionary
-mv <OLD ALIAS> <NEW ALIAS>: rename a pair by alias.
-rm <ALIAS>: remove a pair.
-help: show this message.";
+ls	view the dictionary
+mv <OLD ALIAS> <NEW ALIAS>
+	rename a pair by alias.
+rm <ALIAS>
+	remove a pair.
+help	show this message.";
                             break;
                         }
                     case "ls":
