@@ -27,7 +27,7 @@ namespace copyfile2
 
         public const string title = "copyfile2";
         const string info = "copyfile 2.0.0 by Guyutongxue\nReleased under MIT License.\n";
-        string appPath = AppDomain.CurrentDomain.BaseDirectory;
+        static string appPath = AppDomain.CurrentDomain.BaseDirectory;
 
         NotifyIconHelper notifyIconHelper;
 
@@ -36,7 +36,11 @@ namespace copyfile2
 
         DriveInfo[] diOrigin;
 
-        DictionaryHelper dictMark = new DictionaryHelper();
+        DictionaryHelper dictMark = new DictionaryHelper(appPath+"cfmk.xml");
+
+        delegate void InputDelegate(List<string> args);
+
+        Dictionary<string, InputDelegate> dictInput = new Dictionary<string, InputDelegate>();
 
         [STAThread]
         static void Main(string[] args)
@@ -55,14 +59,28 @@ namespace copyfile2
             notifyIconHelper = new NotifyIconHelper(Properties.Resources.AppIcon, title);
             notifyIconHelper.ShowNotifyIcon();
 
+            dictInput.Add("help", InputHelp);
+            dictInput.Add("exit", InputExit);
+            dictInput.Add("hide", InputHide);
+            dictInput.Add("start", InputStart);
+            dictInput.Add("stop", InputStop);
+            dictInput.Add("rm-mark", InputRmMark);
+            dictInput.Add("add-ignore", InputAddIgnore);
+            dictInput.Add("rm-ignore", InputRmIgnore);
+            dictInput.Add("dict", InputDict);
+
             if (File.Exists(appPath + "cfmk.xml"))
             {
-                dictMark.ReadFromFile(appPath + "cfmk.xml");
+                dictMark.ReadFromFile();
             }
             else
             {
-                dictMark.WriteToFile(appPath + "cfmk.xml");
+                dictMark.WriteToFile();
             }
+
+            Console.Write(info);
+            thrdInput = new Thread(new ThreadStart(GetInput));
+            thrdInput.Start();
 
             if (args.Length >= 1 && args[0].Equals("bgstart"))
             {
@@ -71,10 +89,6 @@ namespace copyfile2
                 thrdWatch = new Thread(new ThreadStart(Watcher));
                 thrdWatch.Start();
             }
-
-            Console.Write(info);
-            thrdInput = new Thread(new ThreadStart(GetInput));
-            thrdInput.Start();
 
             while (true)
             {
@@ -97,103 +111,10 @@ namespace copyfile2
                     Thread.Sleep(100);
                     Console.Write("> ");
                     string input = Console.ReadLine();
-                    string[] args = GetArgs(input);
-                    if (args.Length == 0) continue;
-                    switch (args[0])
-                    {
-                        case "help":
-                            {
-                                Console.WriteLine(
-@"copyfile 2.0.0 by Guyutongxue
-Released under MIT License.
-
-start	start watch USB Device insert event.
-stop	stop watch event.
-
-hide	hide the console window.
-exit	exit programm.
-
-rm-mark <DRIVE1><DRIVE2>...
-	remove the mark of several drives.
-
-add-ignore <DRIVE1><DRIVE2>...
-	ignore several drives.
-rm-ignore <DRIVE1><DRIVE2>...
-	cancel ignoring of several drives.
-
-dict <COMMAND> [<ARGS>]
-	view the dictionary of marks.
-
-help	show this message.");
-                                break;
-                            }
-                        case "exit":
-                            {
-                                Exit();
-                                break;
-                            }
-                        case "hide":
-                            {
-                                notifyIconHelper.Hide();
-                                break;
-                            }
-                        case "start":
-                            {
-                                if (!isWatching)
-                                {
-                                    isWatching = true;
-                                    thrdWatch = new Thread(new ThreadStart(Watcher));
-                                    thrdWatch.Start();
-                                }
-                                else
-                                {
-                                    Console.WriteLine("Watcher has been started.");
-                                }
-                                break;
-                            }
-                        case "stop":
-                            {
-                                if (isWatching)
-                                {
-                                    isWatching = false;
-                                    thrdWatch.Join();
-                                }
-                                else Console.WriteLine("Watcher hasn't been started yet.");
-                                break;
-                            }
-                        case "rm-mark":
-                            {
-                                foreach (char i in args[1])
-                                    if (CopyManager.IsMarked(i)) CopyManager.RemoveMark(i);
-                                    else Console.WriteLine($"No mark in {i} .");
-                                break;
-                            }
-                        case "add-ignore":
-                            {
-                                foreach (char i in args[1])
-                                    if (!CopyManager.IsIgnored(i)) CopyManager.AddIgnore(i);
-                                    else Console.WriteLine($"Already ignored {i} .");
-                                break;
-                            }
-                        case "rm-ignore":
-                            {
-                                foreach (char i in args[1])
-                                    if (CopyManager.IsIgnored(i)) CopyManager.RemoveIgnore(i);
-                                    else Console.WriteLine($"Haven't ignored {i} yet.");
-                                break;
-                            }
-                        case "dict":
-                            {
-                                Console.WriteLine(dictMark.Operate(args, appPath));
-                                break;
-                            }
-                        default:
-                            {
-                                Console.WriteLine($"Command \"{args[0]}\" not found.");
-                                break;
-                            }
-                    }
-
+                    List<string> args = GetArgs(input);
+                    if (args.Count == 0) continue;
+                    if (dictInput.ContainsKey(args[0])) dictInput[args[0]](args);
+                    else Console.WriteLine($"Command \"{args[0]}\" not found.");
                 }
                 catch (Exception ex)
                 {
@@ -202,12 +123,14 @@ help	show this message.");
             }
         }
 
+
+
         /// <summary>
         /// For split a command to arguments array by spaces.
         /// </summary>
         /// <param name="command">The required command</param>
         /// <returns>An array of arguments.</returns>
-        private string[] GetArgs(string command)
+        private List<string> GetArgs(string command)
         {
             List<string> args = new List<string>();
             bool isCmd = false;
@@ -238,11 +161,106 @@ help	show this message.");
                 }
             }
             if (isCmd) args.Add(part);
-            return args.ToArray();
+            return args;
+        }
+
+        #region Input Funcs
+
+        void InputHelp(List<string> args)
+        {
+            Console.WriteLine(
+@"copyfile 2.0.0 by Guyutongxue
+Released under MIT License.
+
+start	start watch USB Device insert event.
+stop	stop watch event.
+
+hide	hide the console window.
+exit	exit programm.
+
+rm-mark <DRIVE1><DRIVE2>...
+	remove the mark of several drives.
+
+add-ignore <DRIVE1><DRIVE2>...
+	ignore several drives.
+rm-ignore <DRIVE1><DRIVE2>...
+	cancel ignoring of several drives.
+
+dict <COMMAND> [<ARGS>]
+	view the dictionary of marks.
+
+help	show this message.");
+        }
+
+        void InputExit(List<string> args)
+        {
+            Exit();
+        }
+
+        void InputHide(List<string> args)
+        {
+            notifyIconHelper.Hide();
+        }
+
+        void InputStart(List<string> args)
+        {
+            if (!isWatching)
+            {
+                isWatching = true;
+                thrdWatch = new Thread(new ThreadStart(Watcher));
+                thrdWatch.Start();
+            }
+            else
+            {
+                Console.WriteLine("Watcher has been started.");
+            }
+        }
+
+        void InputStop(List<string> args)
+        {
+            if (isWatching)
+            {
+                isWatching = false;
+                thrdWatch.Join();
+            }
+            else Console.WriteLine("Watcher hasn't been started yet.");
+        }
+
+        void InputRmMark(List<string> args)
+        {
+            foreach (char i in args[1])
+            {
+                if (CopyManager.IsMarked(i)) CopyManager.RemoveMark(i);
+                else Console.WriteLine($"No mark in {i} .");
+            }
+        }
+
+        void InputAddIgnore(List<string> args)
+        {
+            foreach (char i in args[1])
+            {
+                if (!CopyManager.IsIgnored(i)) CopyManager.AddIgnore(i);
+                else Console.WriteLine($"Already ignored {i} .");
+            }
+        }
+
+        void InputRmIgnore(List<string> args)
+        {
+            foreach (char i in args[1])
+            {
+                if (CopyManager.IsIgnored(i)) CopyManager.RemoveIgnore(i);
+                else Console.WriteLine($"Haven't ignored {i} yet.");
+            }
+        }
+
+        void InputDict(List<string> args)
+        {
+            args.RemoveAt(0);
+            dictMark.Operate(args);
         }
 
 
-
+        #endregion
 
         #region Drive Event Watcher
         // This part is referenced from Stack Overflow. Thanks user "learns CSharp"!
@@ -284,7 +302,7 @@ help	show this message.");
                 ConsoleHelper.EventWriteLine($"Got it!{diff}");
                 foreach (char i in diff)
                 {
-                    if (!CopyManager.IsIgnored(i)) CopyManager.DoCopy(i, appPath + Analyse(i));
+                    if (!CopyManager.IsIgnored(i)) CopyManager.DoCopy(i, appPath + dictMark.Analyse(i));
                     else ConsoleHelper.EventWriteLine($"{i} ignored.");
                 }
 
@@ -299,38 +317,7 @@ help	show this message.");
         /// </summary>
         /// <param name="drive">Drive root directory.</param>
         /// <returns>Alias.</returns>
-        string Analyse(char drive)
-        {
-            if (!CopyManager.IsMarked(drive))
-            {
-                Guid guid = Guid.NewGuid();
-                string alias = guid.ToString().Substring(0, 8);
-                CopyManager.AddMark(drive, guid.ToString());
-                dictMark.Add(alias, guid);
-                dictMark.WriteToFile(appPath + "cfmk.xml");
-
-                ConsoleHelper.EventWriteLine($"New Disk. Init in ({alias},{guid.ToString()}).");
-                return alias;
-            }
-            else
-            {
-                string mark = CopyManager.GetMark(drive);
-                foreach (var i in dictMark.dict)
-                {
-                    if (i.Value.ToString().Equals(mark))
-                    {
-                        ConsoleHelper.EventWriteLine($"Found Disk of ({i.Key},{i.Value}).");
-                        return i.Key;
-                    }
-                }
-                string alias = mark.Substring(0, 8);
-                dictMark.Add(alias, new Guid(mark));
-                dictMark.WriteToFile(appPath + "cfmk.xml");
-
-                ConsoleHelper.EventWriteLine($"New Disk but has mark. Init in ({alias},{mark}).");
-                return alias;
-            }
-        }
+        
 
         #region Force Quit Event
 

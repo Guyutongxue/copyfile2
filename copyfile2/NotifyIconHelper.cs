@@ -60,14 +60,8 @@ public void HideNotifyIcon()
         
         private void _itemSH_Click(object sender, EventArgs e)
         {
-            if (isHidden)
-            {
-                Show();
-            }
-            else
-            {
-                Hide();
-            }
+            if (isHidden) Show();
+            else Hide();
         }
 
         private void _itemExit_Click(object sender,EventArgs e)
