@@ -25,7 +25,7 @@ namespace copyfile2
                 StreamWriter sw = new StreamWriter(fs);
                 sw.Write(text);
                 sw.Flush();
-                File.SetAttributes($"{drive}:\\ignorecf", FileAttributes.Hidden | FileAttributes.System);
+                File.SetAttributes($"{drive}:\\cfmk", FileAttributes.Hidden | FileAttributes.System);
                 fs.Close();
                 return true;
             }

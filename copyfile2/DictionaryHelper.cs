@@ -11,6 +11,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace copyfile2
 {
@@ -22,12 +23,16 @@ namespace copyfile2
 
         Dictionary<string, DictInputDelegate> dictInput = new Dictionary<string, DictInputDelegate>();
 
-        string path;
+        string path, fatherpath;
 
         public DictionaryHelper(string xmlfilepath)
         {
             path = xmlfilepath;
+            string[] dirs = path.Split('\\');
+            int end = dirs[dirs.Length - 1].Length;
+            fatherpath = path.Remove(path.Length - end);
 
+            dictInput.Add("help", InputHelp);
             dictInput.Add("ls", InputLs);
             dictInput.Add("mv", InputMv);
             dictInput.Add("rm", InputRm);
@@ -48,20 +53,8 @@ namespace copyfile2
                     Console.WriteLine("Dictionary Helper: Need command. Type 'dict help' for more info.");
                     return;
                 }
-                if (args[0] == "help")
-                {
-                    Console.WriteLine(
-@"Dictionary Helper Commands:
-ls	view the dictionary
-mv <OLD ALIAS> <NEW ALIAS>
-	rename a pair by alias.
-rm <ALIAS>
-	remove a pair.
-help	show this message.");
-                    return;
-                }
                 if (dictInput.ContainsKey(args[0])) dictInput[args[0]](args);
-                else Console.WriteLine($"Dictinoary Helper: Command \"{args[0]}\" not found.");
+                else Console.WriteLine($"Dictinoary Helper: Command '{args[0]}' not found.");
             }
             catch (Exception ex)
             {
@@ -71,6 +64,20 @@ help	show this message.");
         }
 
         #region DictInputFuncs
+
+        void InputHelp(List<string> args)
+        {
+            Console.WriteLine(
+@"Dictionary Helper Commands:
+ls	view the dictionary
+mv [-r] <OLD ALIAS> <NEW ALIAS>
+	rename a pair by alias.
+	-r	use regular expression in <OLD ALIAS>.
+rm [-r] <ALIAS> [<ALIAS2> ...]
+	remove a pair.
+	-r	use regular expression.
+help	show this message.");
+        }
 
         void InputLs(List<string> args)
         {
@@ -87,27 +94,112 @@ help	show this message.");
 
         void InputMv(List<string> args)
         {
-            Guid value = dict[args[1]];
-            dict.Remove(args[1]);
-            dict.Add(args[2], value);
-            WriteToFile();
-            Console.WriteLine($"({args[1]},{value}) -> ({args[2]},{value})");
-            if (Directory.Exists(path + args[1]))
+
+            if (args[1][0] == '-')
             {
-                Directory.Move(path + args[1], path + args[2]);
+                if (args[1][1] == 'r')
+                {
+
+                    List<string> target = RegexMatch(args[2]);
+                    switch (target.Count)
+                    {
+                        case 0:
+                            {
+                                Console.WriteLine($"No match for regex '{args[2]}'.");
+                                break;
+                            }
+                        case 1:
+                            {
+                                Move(target[0], args[3]);
+                                break;
+                            }
+                        default:
+                            {
+                                Console.WriteLine($"Too many matches of '{args[2]}'. Here are them:");
+                                foreach (string j in target) Console.WriteLine(j);
+                                break;
+                            }
+                    }
+
+                }
+                else if (args[1] == "--") Move(args[2], args[3]);
+                else
+                {
+                    Console.WriteLine($"Error: Unknown option'{args[1]}'.");
+                    return;
+                }
+            }
+            else Move(args[1], args[2]);
+        }
+
+
+
+        void InputRm(List<string> args)
+        {
+            if (args[1][0] == '-')
+            {
+                if (args[1][1] == 'r')
+                {
+                    for (int i = 2; i < args.Count; i++)
+                    {
+                        List<string> target = RegexMatch(args[i]);
+                        if (target.Count == 0)
+                        {
+                            Console.WriteLine($"No match for regex '{args[i]}'.");
+                            break;
+                        }
+                        foreach (string j in target) Remove(j);
+                    }
+
+                }
+                else if (args[1] == "--") for (int i = 2; i < args.Count; i++) Remove(args[i]);
+                else
+                {
+                    Console.WriteLine($"Error: Unknown option'{args[1]}'.");
+                    return;
+                }
+            }
+            else for (int i = 1; i < args.Count; i++) Remove(args[i]);
+        }
+
+        #endregion
+
+        void Move(string src, string dst)
+        {
+            Guid value = dict[src];
+            dict.Remove(src);
+            dict.Add(dst, value);
+            WriteToFile();
+            Console.WriteLine($"({src},{value}) -> ({dst},{value})");
+            if (Directory.Exists(fatherpath + src))
+            {
+                Directory.Move(fatherpath + src, fatherpath + dst);
                 Console.WriteLine("Folder moved.");
             }
         }
 
-        void InputRm(List<string> args)
+        void Remove(string src)
         {
-            Guid value = dict[args[1]];
-            dict.Remove(args[1]);
+            Guid value = dict[src];
+            dict.Remove(src);
             WriteToFile();
-            Console.WriteLine($"({args[1]},{value}) removed.");
+            Console.WriteLine($"({src},{value}) removed.");
         }
 
-        #endregion
+        List<string> RegexMatch(string pattern)
+        {
+            Regex regex = new Regex('^' + pattern + '$');
+            List<string> result = new List<string>();
+            foreach (string i in dict.Keys)
+            {
+                if (regex.IsMatch(i))
+                {
+                    result.Add(i);
+                }
+            }
+            return result;
+        }
+        
 
         /// <summary>
         /// Write the Dictionary to XML.

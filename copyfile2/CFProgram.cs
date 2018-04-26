@@ -36,7 +36,7 @@ namespace copyfile2
 
         DriveInfo[] diOrigin;
 
-        DictionaryHelper dictMark = new DictionaryHelper(appPath+"cfmk.xml");
+        DictionaryHelper dictMark = new DictionaryHelper(appPath + "cfmk.xml");
 
         delegate void InputDelegate(List<string> args);
 
@@ -114,7 +114,7 @@ namespace copyfile2
                     List<string> args = GetArgs(input);
                     if (args.Count == 0) continue;
                     if (dictInput.ContainsKey(args[0])) dictInput[args[0]](args);
-                    else Console.WriteLine($"Command \"{args[0]}\" not found.");
+                    else Console.WriteLine($"Command '{args[0]}' not found.");
                 }
                 catch (Exception ex)
                 {
@@ -134,12 +134,26 @@ namespace copyfile2
         {
             List<string> args = new List<string>();
             bool isCmd = false;
+            bool isQuote = false;
             string part = string.Empty;
             for (int i = 0; i < command.Length; i++)
             {
+                if (command[i] == '"')
+                {
+                    isQuote = !isQuote;
+                    continue;
+                }
                 if (!isCmd)
                 {
-                    if (command[i] == ' ') continue;
+                    if (command[i] == ' ')
+                    {
+                        if (isQuote)
+                        {
+                            isCmd = true;
+                            part += command[i];
+                        }
+                        else continue;
+                    }
                     else
                     {
                         isCmd = true;
@@ -150,17 +164,19 @@ namespace copyfile2
                 {
                     if (command[i] == ' ')
                     {
-                        args.Add(part);
-                        part = string.Empty;
-                        isCmd = false;
+                        if (isQuote) part += command[i];
+                        else
+                        {
+                            isCmd = false;
+                            args.Add(part);
+                            part = string.Empty;
+                        }
                     }
-                    else
-                    {
-                        part += command[i];
-                    }
+                    else part += command[i];
                 }
             }
             if (isCmd) args.Add(part);
+            if (isQuote) throw new Exception("Unfinished quotes.");
             return args;
         }
 
@@ -178,12 +194,12 @@ stop	stop watch event.
 hide	hide the console window.
 exit	exit programm.
 
-rm-mark <DRIVE1><DRIVE2>...
+rm-mark <DRIVE1>[<DRIVE2>...]
 	remove the mark of several drives.
 
-add-ignore <DRIVE1><DRIVE2>...
+add-ignore <DRIVE1>[<DRIVE2>...]
 	ignore several drives.
-rm-ignore <DRIVE1><DRIVE2>...
+rm-ignore <DRIVE1>[<DRIVE2>...]
 	cancel ignoring of several drives.
 
 dict <COMMAND> [<ARGS>]
@@ -317,7 +333,7 @@ help	show this message.");
         /// </summary>
         /// <param name="drive">Drive root directory.</param>
         /// <returns>Alias.</returns>
-        
+
 
         #region Force Quit Event
 
