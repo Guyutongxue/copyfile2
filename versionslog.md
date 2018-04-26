@@ -7,7 +7,7 @@
 - Command Line style.
 - Automatically combine same disk by inserting marks.
 - Ignore specific disks.
-- **NOT FINISHED PROJECT YET**
+- Dictionary management.
 
 ## v1.1.2
 
