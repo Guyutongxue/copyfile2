@@ -11,11 +11,10 @@
 
 ## 新手教程
 
-1. 在程序所在目录下创建如下的.cmd/.bat文档：
-```bat
-@echo off
-copyfile2 bgstart
-exit
+1. 在程序所在目录下创建如下的.vbs文档：
+```VB
+Set ws = WScript.CreateObject("WScript.Shell")
+a = ws.Run("copyfile2 bgstart",0)
 ```
 2. 运行它。
 
@@ -28,6 +27,6 @@ Requirement: .NET Framework 4.5 or newer, C# 6.0 or newer.
 Use VS 2017 to compile the C# .NET Project.
 
 
-===
+---
 
 View [Wiki](https://github.com/Guyutongxue/copyfile2/wiki) for more infomation.
